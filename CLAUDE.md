@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation provides user sign-up/sign-in, AI chat for all 11 catalog document types with live preview and PDF download. Document persistence is planned but not yet built.
+The current implementation provides user sign-up/sign-in, AI chat for all 11 catalog document types with live preview and PDF download, and per-user document persistence with save/load/delete.
 
 ## Development process
 
@@ -92,10 +92,11 @@ Backend available at http://localhost:8000
 - LLM resilience: rate-limit retry with backoff, provider fallbacks, conversation history trimmed to last 24 messages, graceful 503 errors surfaced in the chat UI
 - Detected document type no longer wipes previously extracted field values
 
-### Planned (PL-7) — not started
-- Document persistence (save/load/delete)
-- My Documents UI
-- Document CRUD API endpoints (`/api/documents/*`)
+### Completed (PL-7)
+- Document persistence in SQLite (`documents` table: type, title, fields JSON, completion status)
+- Document CRUD API at `/api/documents` (auth required; scoped to current user)
+- Dashboard: Save / Save Document, New Document, My Documents modal (load and delete)
+- Saved documents restore `document_type`, fields, and completion state on load
 
 Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnly session cookies, not JWT.
 
@@ -105,6 +106,11 @@ Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnl
 - `POST /api/auth/signout` - Clear session cookie
 - `GET /api/auth/me` - Get current user info (requires session cookie)
 - `GET /api/catalog` - List available document types (auth required)
+- `GET /api/documents` - List current user's saved documents (auth required)
+- `POST /api/documents` - Save a new document (auth required)
+- `GET /api/documents/{id}` - Load a saved document (auth required)
+- `PUT /api/documents/{id}` - Update a saved document (auth required)
+- `DELETE /api/documents/{id}` - Delete a saved document (auth required)
 - `GET /api/chat/greeting` - Get AI greeting for document chat (auth required)
 - `POST /api/chat/message` - Send chat message; returns assistant reply, `document_type`, merged fields, and `is_complete` (auth required). Returns 503 if OpenRouter/Cerebras is rate-limited or unavailable.
 - `GET /api/health` - Health check
