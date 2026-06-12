@@ -22,6 +22,8 @@ When instructed to build a feature:
 
 When writing code to make calls to LLMs, use the Cerebras skill at `.claude/skills/cerebras/SKILL.md` to call LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. Use Structured Outputs so you can interpret results and populate fields in the legal document.
 
+Project Claude Code config lives in `.claude/` (including `settings.local.json` and skills) and is version-controlled in this repo.
+
 There is an `OPENROUTER_API_KEY` in the `.env` file in the project root. Docker Compose loads it via `env_file: .env`.
 
 ## Technical design

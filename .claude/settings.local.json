@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\RVRNK\\\\Source\\\\AI_Projects\\\\Ed_Donner-AI_Coder_Coding_Agents_Course\\\\Prelegal\" -Recurse -Name | Where-Object { $_ -match \"mcp|figma|settings\" })",
+      "PowerShell(Select-String -Path \"C:\\\\Users\\\\RVRNK\\\\.claude\\\\plugins\\\\marketplaces\\\\claude-plugins-official\\\\.claude-plugin\\\\marketplace.json\" -Pattern \"figma\" -Context 0,2 | Select-Object -First 10 | ForEach-Object { $_.Line })",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\RVRNK\\\\.claude\" -Name | Where-Object { $_ -notmatch \"projects|plugins\" })",
+      "PowerShell(Select-String *)",
+      "PowerShell(claude mcp *)",
+      "Bash(claude mcp *)",
+      "mcp__atlassian__getAccessibleAtlassianResources",
+      "mcp__atlassian__getJiraIssue",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('react:', d.get\\('version','?'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('react-pdf:', d.get\\('version','?'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('tailwindcss:', d.get\\('version','?'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('typescript:', d.get\\('version','?'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('exports:', list\\(d.get\\('exports', {}\\).keys\\(\\)\\)[:5] if d.get\\('exports'\\) else 'none'\\); print\\('main:', d.get\\('main','?'\\)\\); print\\('module:', d.get\\('module','?'\\)\\)\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('jest:', d.get\\('version','?'\\)\\)\")",
+      "Bash(uv sync *)",
+      "Bash(uv run *)",
+      "Bash(npx jest *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('dependencies',{}\\), indent=2\\)\\)\")",
+      "mcp__github__create_pull_request",
+      "Bash(git checkout *)",
+      "Bash(git merge *)",
+      "Bash(git push *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\('package-lock exists'\\)\")",
+      "Bash(git ls-tree *)",
+      "Bash(git stash *)"
+    ]
+  }
+}
