@@ -25,7 +25,6 @@ export default function NDADownloadButton({ fields }: { fields: NDAFields }) {
 
   return (
     <PDFDownloadLink
-      // @ts-expect-error — dynamic import typing
       document={<NDADocument fields={fields} />}
       fileName={filename}
     >
