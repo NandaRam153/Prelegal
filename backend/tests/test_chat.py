@@ -3,6 +3,8 @@ import json
 
 from app.schemas.nda import empty_nda, is_nda_complete, merge_nda_fields
 from app.services import document_registry
+from app.services import llm
+from app.services.llm import _trim_conversation
 
 SESSION_COOKIE = "prelegal_session"
 
@@ -33,6 +35,36 @@ def test_message_requires_auth(client):
         json={"messages": [{"role": "user", "content": "Acme Corp"}]},
     )
     assert response.status_code == 401
+
+
+def test_trim_conversation_limits_history():
+    conversation = [{"role": "user", "content": f"msg-{i}"} for i in range(30)]
+    trimmed = _trim_conversation(conversation)
+    assert len(trimmed) == 24
+    assert trimmed[0]["content"] == "msg-6"
+
+
+@patch("app.services.llm.time.sleep")
+@patch("app.services.llm.litellm.completion")
+def test_message_returns_service_unavailable_on_rate_limit(
+    mock_completion, _mock_sleep, client
+):
+    from litellm.exceptions import RateLimitError
+
+    _signup(client)
+    mock_completion.side_effect = RateLimitError(
+        message="rate limited",
+        llm_provider="openrouter",
+        model=llm.MODEL,
+    )
+
+    response = client.post(
+        "/api/chat/message",
+        json={"messages": [{"role": "user", "content": "I need an NDA"}]},
+    )
+
+    assert response.status_code == 503
+    assert "temporarily busy" in response.json()["detail"].lower()
 
 
 @patch("app.services.llm.litellm.completion")

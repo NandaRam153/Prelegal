@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.deps import get_current_user
 from app.models import User
@@ -29,9 +29,15 @@ def message(body: ChatRequest, _user: User = Depends(get_current_user)):
     )
     conversation = [{"role": m.role, "content": m.content} for m in body.messages]
 
-    assistant_message, detected_type, extracted, llm_complete = llm.chat_completion(
-        conversation, document_type, current
-    )
+    try:
+        assistant_message, detected_type, extracted, llm_complete = llm.chat_completion(
+            conversation, document_type, current
+        )
+    except llm.ChatServiceError as exc:
+        headers = {}
+        if exc.retry_after_seconds is not None:
+            headers["Retry-After"] = str(exc.retry_after_seconds)
+        raise HTTPException(status_code=503, detail=str(exc), headers=headers) from exc
 
     resolved_type = detected_type or document_type
     if not resolved_type:

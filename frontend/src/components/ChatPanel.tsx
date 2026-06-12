@@ -52,7 +52,7 @@ export default function ChatPanel({
 
     const userMessage: ChatMessage = { role: "user", content: text };
     const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setError("");
     setLoading(true);

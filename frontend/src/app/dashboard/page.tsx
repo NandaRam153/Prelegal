@@ -7,7 +7,7 @@ import { api, type User } from "@/lib/api";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentPreview from "@/components/DocumentPreview";
 import type { DocumentFields, DocumentTypeId } from "@/lib/documentTypes";
-import { emptyFields, getDocumentName } from "@/lib/documentTypes";
+import { getDocumentName } from "@/lib/documentTypes";
 
 const DocumentDownloadButton = dynamic(
   () => import("@/components/DocumentDownloadButton"),
@@ -31,12 +31,10 @@ export default function DashboardPage() {
 
   function handleDocumentTypeChange(nextType: DocumentTypeId | null) {
     setDocumentType(nextType);
-    if (nextType) {
-      setFields(emptyFields(nextType));
-    } else {
+    if (!nextType) {
       setFields({});
+      setIsComplete(false);
     }
-    setIsComplete(false);
   }
 
   async function handleSignOut() {

@@ -22,6 +22,8 @@ When instructed to build a feature:
 
 When writing code to make calls to LLMs, use the Cerebras skill at `.claude/skills/cerebras/SKILL.md` to call LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. Use Structured Outputs so you can interpret results and populate fields in the legal document.
 
+The chat service (`backend/app/services/llm.py`) retries on OpenRouter rate limits, trims conversation history before each LLM call, and returns HTTP 503 with a user-friendly message instead of crashing when the provider is busy.
+
 Project Claude Code config lives in `.claude/` (including `settings.local.json` and skills) and is version-controlled in this repo.
 
 There is an `OPENROUTER_API_KEY` in the `.env` file in the project root. Docker Compose loads it via `env_file: .env`.
@@ -77,16 +79,18 @@ Backend available at http://localhost:8000
 - Structured JSON outputs for reliable field extraction from conversation
 - Live preview updates as AI extracts fields from chat
 - AI greeting on dashboard load (`GET /api/chat/greeting`); conversational follow-up via `POST /api/chat/message`
-- Download button appears when all required NDA fields are gathered
+- Download button appears when all required fields for the active document type are gathered
 - Backend chat tests in `backend/tests/test_chat.py` (mocked LLM)
 
 ### Completed (PL-6)
 - Support for all 11 document types from catalog.json via `document_registry` (backend) and `documentTypes.ts` (frontend)
 - AI document-type detection when no type is selected; routed LLM prompts and JSON schemas per type
 - Dedicated preview/PDF for Mutual NDA, Cloud Service Agreement, and Pilot Agreement
-- Generic preview/PDF components for remaining document types
+- Generic preview/PDF components for remaining document types (`DocumentPreview`, `DocumentDownloadButton`)
 - Catalog API at `GET /api/catalog` (auth required)
 - Chat API returns `document_type` plus type-specific `fields`
+- LLM resilience: rate-limit retry with backoff, provider fallbacks, conversation history trimmed to last 24 messages, graceful 503 errors surfaced in the chat UI
+- Detected document type no longer wipes previously extracted field values
 
 ### Planned (PL-7) — not started
 - Document persistence (save/load/delete)
@@ -102,5 +106,5 @@ Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnl
 - `GET /api/auth/me` - Get current user info (requires session cookie)
 - `GET /api/catalog` - List available document types (auth required)
 - `GET /api/chat/greeting` - Get AI greeting for document chat (auth required)
-- `POST /api/chat/message` - Send chat message; returns assistant reply, `document_type`, merged fields, and `is_complete` (auth required)
+- `POST /api/chat/message` - Send chat message; returns assistant reply, `document_type`, merged fields, and `is_complete` (auth required). Returns 503 if OpenRouter/Cerebras is rate-limited or unavailable.
 - `GET /api/health` - Health check

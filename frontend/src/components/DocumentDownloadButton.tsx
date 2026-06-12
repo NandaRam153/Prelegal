@@ -1,23 +1,10 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { PDFDownloadLink } from "@react-pdf/renderer";
 import type { DocumentFields, DocumentTypeId } from "@/lib/documentTypes";
 import { getDownloadFilename, toNDAFields } from "@/lib/documentTypes";
-
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then((mod) => mod.PDFDownloadLink),
-  { ssr: false, loading: () => null }
-);
-
-const NDADocument = dynamic(() => import("@/components/NDADocument"), {
-  ssr: false,
-  loading: () => null,
-});
-
-const GenericDocumentPdf = dynamic(
-  () => import("@/components/pdf/GenericDocumentPdf"),
-  { ssr: false, loading: () => null }
-);
+import NDADocument from "@/components/NDADocument";
+import GenericDocumentPdf from "@/components/pdf/GenericDocumentPdf";
 
 interface Props {
   documentType: DocumentTypeId;

@@ -379,7 +379,7 @@ The user wants to draft a legal agreement. Available document types:
 
 Your job:
 1. Determine which document type the user wants from their message.
-2. If unclear, ask a brief clarifying question and leave document_type null.
+2. If unclear, ask a brief clarifying question and set document_type to empty string "".
 3. Once confident, set document_type to the matching id and ask the first field question for that document.
 4. Populate fields with any values already provided.
 
@@ -417,7 +417,8 @@ def build_response_schema(document_type_id: str | None) -> dict[str, Any]:
         "properties": {
             "assistant_message": {"type": "string"},
             "document_type": {
-                "anyOf": [{"type": "string", "enum": type_ids}, {"type": "null"}],
+                "type": "string",
+                "enum": [*type_ids, ""],
             },
             "fields": {
                 "type": "object",
