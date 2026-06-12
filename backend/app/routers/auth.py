@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.deps import SESSION_COOKIE, get_current_user
 from app.models import Session as UserSession
 from app.models import User
 
@@ -38,21 +39,6 @@ class UserResponse(BaseModel):
     email: str
 
     model_config = {"from_attributes": True}
-
-
-def _get_current_user(
-    token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
-    db: Session = Depends(get_db),
-) -> User:
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    session = db.query(UserSession).filter(UserSession.token == token).first()
-    if not session:
-        raise HTTPException(status_code=401, detail="Invalid session")
-    user = db.query(User).filter(User.id == session.user_id).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
 
 
 @router.post("/signup", response_model=UserResponse)
@@ -90,7 +76,7 @@ def signout(
 
 
 @router.get("/me", response_model=UserResponse)
-def me(current_user: User = Depends(_get_current_user)):
+def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 

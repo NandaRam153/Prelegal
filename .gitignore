@@ -120,3 +120,10 @@ desktop.ini
 *.cert
 *.crt
 secrets/
+
+# =====================
+# Claude Code
+# =====================
+# Track all .claude project files (override global git ignores)
+!.claude/
+!.claude/**

@@ -7,15 +7,15 @@ const config: Config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
+    '^@/(.*)$': '<rootDir>/src/$1',
     // @react-pdf/renderer uses canvas/browser APIs unavailable in jsdom
     '^@react-pdf/renderer$': '<rootDir>/__mocks__/@react-pdf/renderer.ts',
   },
   testMatch: ['**/__tests__/**/*.test.{ts,tsx}'],
   collectCoverageFrom: [
-    'lib/**/*.ts',
-    'components/**/*.tsx',
-    'app/**/*.tsx',
+    'src/lib/**/*.ts',
+    'src/components/**/*.tsx',
+    'src/app/**/*.tsx',
     '!**/*.d.ts',
   ],
 };

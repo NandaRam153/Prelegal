@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { api, type User } from "@/lib/api";
-import NDAForm from "@/components/NDAForm";
+import ChatPanel from "@/components/ChatPanel";
 import NDAPreview from "@/components/NDAPreview";
 import { emptyNDA, type NDAFields } from "@/lib/ndaTypes";
 
@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [fields, setFields] = useState<NDAFields>(emptyNDA());
+  const [isComplete, setIsComplete] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -41,7 +42,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-screen" style={{ backgroundColor: "#f4f6f9" }}>
-      {/* Top bar */}
       <header
         className="flex items-center justify-between px-6 py-3 shadow-sm"
         style={{ backgroundColor: "var(--navy)" }}
@@ -71,27 +71,25 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Main content */}
       <main className="flex flex-1 gap-4 p-4 overflow-hidden">
-        {/* Form panel */}
-        <div className="w-80 shrink-0 flex flex-col gap-4">
-          <div
-            className="bg-white rounded-xl shadow p-4 flex-1 overflow-hidden flex flex-col"
-          >
+        <div className="w-96 shrink-0 flex flex-col gap-4">
+          <div className="bg-white rounded-xl shadow p-4 flex-1 overflow-hidden flex flex-col">
             <h2
               className="text-sm font-bold mb-4"
               style={{ color: "var(--navy)" }}
             >
-              Document Details
+              AI Assistant
             </h2>
-            <NDAForm fields={fields} onChange={setFields} />
+            <ChatPanel
+              fields={fields}
+              onFieldsChange={setFields}
+              onCompleteChange={setIsComplete}
+            />
           </div>
 
-          {/* Download button */}
-          <NDADownloadButton fields={fields} />
+          {isComplete && <NDADownloadButton fields={fields} />}
         </div>
 
-        {/* Preview panel */}
         <div className="flex-1 min-w-0">
           <NDAPreview fields={fields} />
         </div>
