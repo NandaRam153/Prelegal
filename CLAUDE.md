@@ -20,9 +20,9 @@ When instructed to build a feature:
 
 ## AI design
 
-When writing code to make calls to LLMs, use your Cerebras skill to use LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. You should use Structured Outputs so that you can interpret the results and populate fields in the legal document.
+When writing code to make calls to LLMs, use the Cerebras skill at `.claude/skills/cerebras/SKILL.md` to call LiteLLM via OpenRouter to the `openrouter/openai/gpt-oss-120b` model with Cerebras as the inference provider. Use Structured Outputs so you can interpret results and populate fields in the legal document.
 
-There is an OPENROUTER_API_KEY in the .env file in the project root.
+There is an `OPENROUTER_API_KEY` in the `.env` file in the project root. Docker Compose loads it via `env_file: .env`.
 
 ## Technical design
 
@@ -65,15 +65,18 @@ Backend available at http://localhost:8000
 - Mutual NDA live preview and client-side PDF download (`@react-pdf/renderer`)
 - Frontend API client at `frontend/src/lib/api.ts`; NDA field types at `frontend/src/lib/ndaTypes.ts`
 - Start/stop scripts for Mac, Linux, Windows
-- Jest test setup in `frontend/` (component and lib tests)
+- Jest test setup in `frontend/` (`__tests__/lib/ndaTypes.test.ts`)
 
 ### Completed (PL-5)
-- AI chat interface replaces manual NDA form on the dashboard
-- LiteLLM via OpenRouter with Cerebras inference (`gpt-oss-120b`)
+- AI chat interface (`frontend/src/components/ChatPanel.tsx`) replaces the manual form on the dashboard
+- Chat API at `backend/app/routers/chat.py`; LLM integration at `backend/app/services/llm.py`
+- NDA schemas and field merge/complete helpers at `backend/app/schemas/nda.py`
+- LiteLLM via OpenRouter with Cerebras inference (`openrouter/openai/gpt-oss-120b`)
 - Structured JSON outputs for reliable field extraction from conversation
 - Live preview updates as AI extracts fields from chat
-- AI greeting on dashboard load; conversational follow-up questions
+- AI greeting on dashboard load (`GET /api/chat/greeting`); conversational follow-up via `POST /api/chat/message`
 - Download button appears when all required NDA fields are gathered
+- Backend chat tests in `backend/tests/test_chat.py` (mocked LLM)
 
 ### Planned (PL-6) — not started
 - Support for all 11 document types from catalog.json
@@ -93,5 +96,5 @@ Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnl
 - `POST /api/auth/signout` - Clear session cookie
 - `GET /api/auth/me` - Get current user info (requires session cookie)
 - `GET /api/chat/greeting` - Get AI greeting for NDA chat (auth required)
-- `POST /api/chat/message` - Send chat message and get AI response with extracted fields (auth required)
+- `POST /api/chat/message` - Send chat message; returns assistant reply, merged `NDAFields`, and `is_complete` (auth required)
 - `GET /api/health` - Health check
