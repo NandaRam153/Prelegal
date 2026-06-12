@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation supports all 11 document types via AI chat with full user authentication and document persistence.
+The current implementation provides user sign-up/sign-in, an AI chat interface for Mutual NDA drafting with live preview and PDF download. Additional document types and document persistence are planned but not yet built.
 
 ## Development process
 
@@ -59,47 +59,39 @@ Backend available at http://localhost:8000
 ### Completed (PL-4)
 - Docker multi-stage build (Node frontend + Python backend)
 - FastAPI backend with SQLite (fresh DB each container start)
-- Next.js static export served by FastAPI at localhost:8000
-- Auth routes: POST /api/auth/signup, POST /api/auth/signin, POST /api/auth/signout, GET /api/auth/me
+- Next.js static export (`frontend/src/`) served by FastAPI at localhost:8000
+- User auth: sign-up, sign-in, sign-out, and session check via HttpOnly `prelegal_session` cookie (bcrypt password hashing)
+- Login page at `/` and protected dashboard at `/dashboard/` (redirects unauthenticated users)
+- Mutual NDA live preview and client-side PDF download (`@react-pdf/renderer`)
+- Frontend API client at `frontend/src/lib/api.ts`; NDA field types at `frontend/src/lib/ndaTypes.ts`
 - Start/stop scripts for Mac, Linux, Windows
-- Mutual NDA form with live preview and PDF download
+- Jest test setup in `frontend/` (component and lib tests)
 
 ### Completed (PL-5)
-- AI chat interface replaces manual form for NDA creation
-- Uses LiteLLM via OpenRouter with Cerebras inference (gpt-oss-120b model)
-- Structured outputs for reliable field extraction from conversation
+- AI chat interface replaces manual NDA form on the dashboard
+- LiteLLM via OpenRouter with Cerebras inference (`gpt-oss-120b`)
+- Structured JSON outputs for reliable field extraction from conversation
 - Live preview updates as AI extracts fields from chat
-- AI greets user, asks questions conversationally, and confirms when complete
-- Download button appears when all required fields are gathered
+- AI greeting on dashboard load; conversational follow-up questions
+- Download button appears when all required NDA fields are gathered
 
-### Completed (PL-6)
+### Planned (PL-6) — not started
 - Support for all 11 document types from catalog.json
-- AI detects document type from user requests and routes accordingly
-- Dedicated preview/PDF components for Mutual NDA, Cloud Service Agreement, Pilot Agreement
-- Generic preview/PDF components for remaining document types (Design Partner, SLA, Professional Services, Partnership, Software License, DPA, BAA, AI Addendum)
-- Auto-focus chat input after sending messages
-- AI always asks follow-on questions when more information is needed
+- AI document-type detection and routing
+- Dedicated preview/PDF components per document type
 
-### Completed (PL-7)
-- Functional user authentication with JWT tokens in HttpOnly cookies
-- User signup and signin with email/password (bcrypt password hashing)
-- Document persistence - users can save documents to their account
-- My Documents modal to view, load, and delete saved documents
-- User menu with sign out functionality
-- New Document button to start fresh
-- Auth context for managing user state across the app
-- Protected document save/load endpoints
+### Planned (PL-7) — not started
+- Document persistence (save/load/delete)
+- My Documents UI
+- Document CRUD API endpoints (`/api/documents/*`)
+
+Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnly session cookies, not JWT.
 
 ### Current API Endpoints
-- `POST /api/auth/signup` - Create new user account
-- `POST /api/auth/signin` - Sign in and receive JWT cookie
-- `POST /api/auth/signout` - Clear auth cookie
-- `GET /api/auth/me` - Get current user info
-- `GET /api/documents` - List user's saved documents (auth required)
-- `POST /api/documents` - Save new document (auth required)
-- `GET /api/documents/{id}` - Get specific document (auth required)
-- `PUT /api/documents/{id}` - Update document (auth required)
-- `DELETE /api/documents/{id}` - Delete document (auth required)
-- `GET /api/chat/greeting` - Get AI greeting
-- `POST /api/chat/message` - Send chat message and get AI response
+- `POST /api/auth/signup` - Create new user account and set session cookie
+- `POST /api/auth/signin` - Sign in and set session cookie
+- `POST /api/auth/signout` - Clear session cookie
+- `GET /api/auth/me` - Get current user info (requires session cookie)
+- `GET /api/chat/greeting` - Get AI greeting for NDA chat (auth required)
+- `POST /api/chat/message` - Send chat message and get AI response with extracted fields (auth required)
 - `GET /api/health` - Health check
