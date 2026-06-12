@@ -119,7 +119,14 @@ def update_document(
         doc.is_complete = body.is_complete
 
     fields = doc.fields or {}
-    doc.title = body.title or _default_title(doc.document_type, fields)
+    if body.title is not None:
+        # Caller explicitly supplied a title (including empty string → fall back to auto)
+        doc.title = body.title or _default_title(doc.document_type, fields)
+    elif body.fields is not None:
+        # Fields changed: refresh the auto-title only if the title was never customised
+        old_auto = _default_title(doc.document_type, doc.fields or {})
+        if doc.title == old_auto:
+            doc.title = _default_title(doc.document_type, fields)
 
     db.commit()
     db.refresh(doc)

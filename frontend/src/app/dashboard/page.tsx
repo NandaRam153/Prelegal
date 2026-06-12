@@ -93,7 +93,11 @@ export default function DashboardPage() {
   }
 
   async function handleSignOut() {
-    await api.signout();
+    try {
+      await api.signout();
+    } catch {
+      // Navigate regardless — the session cookie will expire server-side
+    }
     router.replace("/");
   }
 
