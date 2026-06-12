@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class NDAFields(BaseModel):
@@ -53,19 +53,3 @@ def is_nda_complete(fields: NDAFields) -> bool:
     ]
     data = fields.model_dump()
     return all(str(data[key]).strip() for key in required)
-
-
-class ChatMessage(BaseModel):
-    role: str = Field(pattern="^(user|assistant)$")
-    content: str
-
-
-class ChatRequest(BaseModel):
-    messages: list[ChatMessage]
-    fields: NDAFields | None = None
-
-
-class ChatResponse(BaseModel):
-    message: str
-    fields: NDAFields
-    is_complete: bool

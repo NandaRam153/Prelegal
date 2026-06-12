@@ -2,21 +2,15 @@ from fastapi import APIRouter, Depends
 
 from app.deps import get_current_user
 from app.models import User
-from app.schemas.nda import (
-    ChatRequest,
-    ChatResponse,
-    empty_nda,
-    is_nda_complete,
-    merge_nda_fields,
-)
-from app.services import llm
+from app.schemas.chat import ChatRequest, ChatResponse
+from app.services import document_registry, llm
 
 router = APIRouter()
 
 GREETING = (
-    "Hi! I'm Prelegal, your AI assistant for drafting a Mutual Non-Disclosure Agreement. "
-    "I'll ask a few questions to fill in the document — let's start with your company. "
-    "What's the name of Party 1 (your organization)?"
+    "Hi! I'm Prelegal, your AI assistant for drafting legal agreements. "
+    "I can help with NDAs, cloud service agreements, pilot agreements, DPAs, and more. "
+    "What type of document would you like to create today?"
 )
 
 
@@ -27,17 +21,33 @@ def greeting(_user: User = Depends(get_current_user)):
 
 @router.post("/message", response_model=ChatResponse)
 def message(body: ChatRequest, _user: User = Depends(get_current_user)):
-    current = body.fields or empty_nda()
+    document_type = body.document_type
+    current = body.fields or (
+        document_registry.empty_fields(document_type)
+        if document_type
+        else {}
+    )
     conversation = [{"role": m.role, "content": m.content} for m in body.messages]
 
-    assistant_message, extracted, llm_complete = llm.chat_completion(
-        conversation, current
+    assistant_message, detected_type, extracted, llm_complete = llm.chat_completion(
+        conversation, document_type, current
     )
-    merged = merge_nda_fields(current, extracted)
-    complete = llm_complete or is_nda_complete(merged)
+
+    resolved_type = detected_type or document_type
+    if not resolved_type:
+        return ChatResponse(
+            message=assistant_message,
+            document_type=None,
+            fields={},
+            is_complete=False,
+        )
+
+    merged = document_registry.merge_fields(current, extracted, resolved_type)
+    complete = llm_complete or document_registry.is_complete(merged, resolved_type)
 
     return ChatResponse(
         message=assistant_message,
+        document_type=resolved_type,
         fields=merged,
         is_complete=complete,
     )

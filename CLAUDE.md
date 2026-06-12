@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation provides user sign-up/sign-in, an AI chat interface for Mutual NDA drafting with live preview and PDF download. Additional document types and document persistence are planned but not yet built.
+The current implementation provides user sign-up/sign-in, AI chat for all 11 catalog document types with live preview and PDF download. Document persistence is planned but not yet built.
 
 ## Development process
 
@@ -80,10 +80,13 @@ Backend available at http://localhost:8000
 - Download button appears when all required NDA fields are gathered
 - Backend chat tests in `backend/tests/test_chat.py` (mocked LLM)
 
-### Planned (PL-6) — not started
-- Support for all 11 document types from catalog.json
-- AI document-type detection and routing
-- Dedicated preview/PDF components per document type
+### Completed (PL-6)
+- Support for all 11 document types from catalog.json via `document_registry` (backend) and `documentTypes.ts` (frontend)
+- AI document-type detection when no type is selected; routed LLM prompts and JSON schemas per type
+- Dedicated preview/PDF for Mutual NDA, Cloud Service Agreement, and Pilot Agreement
+- Generic preview/PDF components for remaining document types
+- Catalog API at `GET /api/catalog` (auth required)
+- Chat API returns `document_type` plus type-specific `fields`
 
 ### Planned (PL-7) — not started
 - Document persistence (save/load/delete)
@@ -97,6 +100,7 @@ Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnl
 - `POST /api/auth/signin` - Sign in and set session cookie
 - `POST /api/auth/signout` - Clear session cookie
 - `GET /api/auth/me` - Get current user info (requires session cookie)
-- `GET /api/chat/greeting` - Get AI greeting for NDA chat (auth required)
-- `POST /api/chat/message` - Send chat message; returns assistant reply, merged `NDAFields`, and `is_complete` (auth required)
+- `GET /api/catalog` - List available document types (auth required)
+- `GET /api/chat/greeting` - Get AI greeting for document chat (auth required)
+- `POST /api/chat/message` - Send chat message; returns assistant reply, `document_type`, merged fields, and `is_complete` (auth required)
 - `GET /api/health` - Health check

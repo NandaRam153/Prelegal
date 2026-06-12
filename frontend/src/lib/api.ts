@@ -16,7 +16,7 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
-import type { NDAFields } from "./ndaTypes";
+import type { DocumentFields, DocumentTypeId } from "./documentTypes";
 
 export interface User {
   id: number;
@@ -28,9 +28,17 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface CatalogEntry {
+  id: DocumentTypeId;
+  name: string;
+  description: string;
+  filename: string;
+}
+
 export interface ChatResponse {
   message: string;
-  fields: NDAFields;
+  document_type: DocumentTypeId | null;
+  fields: DocumentFields;
   is_complete: boolean;
 }
 
@@ -52,11 +60,21 @@ export const api = {
 
   me: () => request<User>("/api/auth/me"),
 
+  catalog: () => request<CatalogEntry[]>("/api/catalog"),
+
   chatGreeting: () => request<{ message: string }>("/api/chat/greeting"),
 
-  chatMessage: (messages: ChatMessage[], fields: NDAFields) =>
+  chatMessage: (
+    messages: ChatMessage[],
+    documentType: DocumentTypeId | null,
+    fields: DocumentFields
+  ) =>
     request<ChatResponse>("/api/chat/message", {
       method: "POST",
-      body: JSON.stringify({ messages, fields }),
+      body: JSON.stringify({
+        messages,
+        document_type: documentType,
+        fields,
+      }),
     }),
 };

@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { api, type User } from "@/lib/api";
 import ChatPanel from "@/components/ChatPanel";
-import NDAPreview from "@/components/NDAPreview";
-import { emptyNDA, type NDAFields } from "@/lib/ndaTypes";
+import DocumentPreview from "@/components/DocumentPreview";
+import type { DocumentFields, DocumentTypeId } from "@/lib/documentTypes";
+import { emptyFields, getDocumentName } from "@/lib/documentTypes";
 
-const NDADownloadButton = dynamic(
-  () => import("@/components/NDADownloadButton"),
+const DocumentDownloadButton = dynamic(
+  () => import("@/components/DocumentDownloadButton"),
   { ssr: false }
 );
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [fields, setFields] = useState<NDAFields>(emptyNDA());
+  const [documentType, setDocumentType] = useState<DocumentTypeId | null>(null);
+  const [fields, setFields] = useState<DocumentFields>({});
   const [isComplete, setIsComplete] = useState(false);
   const [checking, setChecking] = useState(true);
 
@@ -26,6 +28,16 @@ export default function DashboardPage() {
       .catch(() => router.replace("/"))
       .finally(() => setChecking(false));
   }, [router]);
+
+  function handleDocumentTypeChange(nextType: DocumentTypeId | null) {
+    setDocumentType(nextType);
+    if (nextType) {
+      setFields(emptyFields(nextType));
+    } else {
+      setFields({});
+    }
+    setIsComplete(false);
+  }
 
   async function handleSignOut() {
     await api.signout();
@@ -54,7 +66,7 @@ export default function DashboardPage() {
             className="text-xs font-semibold px-2 py-1 rounded"
             style={{ backgroundColor: "rgba(32,157,215,0.2)", color: "var(--blue)" }}
           >
-            Mutual NDA
+            {getDocumentName(documentType)}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -81,17 +93,21 @@ export default function DashboardPage() {
               AI Assistant
             </h2>
             <ChatPanel
+              documentType={documentType}
               fields={fields}
+              onDocumentTypeChange={handleDocumentTypeChange}
               onFieldsChange={setFields}
               onCompleteChange={setIsComplete}
             />
           </div>
 
-          {isComplete && <NDADownloadButton fields={fields} />}
+          {isComplete && documentType && (
+            <DocumentDownloadButton documentType={documentType} fields={fields} />
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
-          <NDAPreview fields={fields} />
+          <DocumentPreview documentType={documentType} fields={fields} />
         </div>
       </main>
     </div>

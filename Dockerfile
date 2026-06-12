@@ -20,6 +20,9 @@ WORKDIR /app
 # Copy frontend static output from build stage
 COPY --from=frontend-builder /app/frontend/out ./out
 
+# Copy catalog for document type registry
+COPY catalog.json ./catalog.json
+
 # Copy backend source
 COPY backend/ ./backend/
 

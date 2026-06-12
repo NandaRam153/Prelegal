@@ -2,6 +2,7 @@ from unittest.mock import patch
 import json
 
 from app.schemas.nda import empty_nda, is_nda_complete, merge_nda_fields
+from app.services import document_registry
 
 SESSION_COOKIE = "prelegal_session"
 
@@ -23,7 +24,7 @@ def test_greeting_returns_message(client):
     response = client.get("/api/chat/greeting")
     assert response.status_code == 200
     data = response.json()
-    assert "Mutual Non-Disclosure Agreement" in data["message"]
+    assert "legal agreements" in data["message"].lower()
 
 
 def test_message_requires_auth(client):
@@ -32,6 +33,45 @@ def test_message_requires_auth(client):
         json={"messages": [{"role": "user", "content": "Acme Corp"}]},
     )
     assert response.status_code == 401
+
+
+@patch("app.services.llm.litellm.completion")
+def test_message_detects_document_type(mock_completion, client):
+    _signup(client)
+    mock_completion.return_value.choices = [
+        type(
+            "Choice",
+            (),
+            {
+                "message": type(
+                    "Message",
+                    (),
+                    {
+                        "content": json.dumps(
+                            {
+                                "assistant_message": "Great, let's draft an NDA. What's Party 1's company?",
+                                "document_type": "mutual-nda",
+                                "fields": {},
+                                "is_complete": False,
+                            }
+                        )
+                    },
+                )()
+            },
+        )()
+    ]
+
+    response = client.post(
+        "/api/chat/message",
+        json={
+            "messages": [{"role": "user", "content": "I need a mutual NDA"}],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_type"] == "mutual-nda"
+    assert data["is_complete"] is False
 
 
 @patch("app.services.llm.litellm.completion")
@@ -48,6 +88,7 @@ def test_message_extracts_fields(mock_completion, client):
                     {
                         "content": (
                             '{"assistant_message": "Great, what is Party 2?", '
+                            '"document_type": "mutual-nda", '
                             '"fields": {"party1Company": "Acme Corp"}, '
                             '"is_complete": false}'
                         )
@@ -57,12 +98,13 @@ def test_message_extracts_fields(mock_completion, client):
         )()
     ]
 
-    fields = empty_nda()
+    fields = document_registry.empty_fields("mutual-nda")
     response = client.post(
         "/api/chat/message",
         json={
             "messages": [{"role": "user", "content": "Acme Corp"}],
-            "fields": fields.model_dump(),
+            "document_type": "mutual-nda",
+            "fields": fields,
         },
     )
 
@@ -104,6 +146,7 @@ def test_message_marks_complete_when_all_fields_present(mock_completion, client)
                         "content": json.dumps(
                             {
                                 "assistant_message": "Your NDA is ready!",
+                                "document_type": "mutual-nda",
                                 "fields": complete_fields,
                                 "is_complete": True,
                             }
@@ -118,12 +161,54 @@ def test_message_marks_complete_when_all_fields_present(mock_completion, client)
         "/api/chat/message",
         json={
             "messages": [{"role": "user", "content": "Delaware, New Castle DE"}],
-            "fields": empty_nda().model_dump(),
+            "document_type": "mutual-nda",
+            "fields": document_registry.empty_fields("mutual-nda"),
         },
     )
 
     assert response.status_code == 200
     assert response.json()["is_complete"] is True
+
+
+@patch("app.services.llm.litellm.completion")
+def test_message_routes_csa_fields(mock_completion, client):
+    _signup(client)
+    mock_completion.return_value.choices = [
+        type(
+            "Choice",
+            (),
+            {
+                "message": type(
+                    "Message",
+                    (),
+                    {
+                        "content": json.dumps(
+                            {
+                                "assistant_message": "Who is the customer?",
+                                "document_type": "csa",
+                                "fields": {"providerCompany": "CloudCo"},
+                                "is_complete": False,
+                            }
+                        )
+                    },
+                )()
+            },
+        )()
+    ]
+
+    response = client.post(
+        "/api/chat/message",
+        json={
+            "messages": [{"role": "user", "content": "Cloud service agreement for CloudCo"}],
+            "document_type": "csa",
+            "fields": document_registry.empty_fields("csa"),
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["document_type"] == "csa"
+    assert data["fields"]["providerCompany"] == "CloudCo"
 
 
 def test_merge_nda_fields_preserves_existing_values():
