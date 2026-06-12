@@ -1,116 +1,155 @@
 import json
 import os
+import time
 from typing import Any
 
 import litellm
+from litellm.exceptions import RateLimitError
 
-from app.schemas.nda import NDAFields
+from app.services.document_registry import (
+    DETECTION_SYSTEM_PROMPT,
+    DOCUMENT_TYPES,
+    build_response_schema,
+    build_system_prompt,
+    empty_fields,
+)
 
 MODEL = "openrouter/openai/gpt-oss-120b"
+EXTRA_BODY = {"provider": {"order": ["cerebras"]}}
+MAX_CONVERSATION_MESSAGES = 24
+MAX_RATE_LIMIT_RETRIES = 2
 
-SYSTEM_PROMPT = """You are Prelegal, a friendly legal document assistant helping users draft a Mutual Non-Disclosure Agreement (Common Paper standard).
 
-Your job is to gather these fields through natural conversation, one or two at a time:
-- Party 1: company name, signatory name, title, notice address (email or postal)
-- Party 2: company name, signatory name, title, notice address
-- Purpose (how confidential information may be used)
-- Effective date (YYYY-MM-DD)
-- MNDA term (e.g. "1 year from Effective Date" or "Continues until terminated")
-- Term of confidentiality (e.g. "1 year from Effective Date" or "In perpetuity")
-- Governing law (US state)
-- Jurisdiction (courts, e.g. "New Castle, DE")
+class ChatServiceError(Exception):
+    """Raised when the LLM call fails in a user-recoverable way."""
 
-Rules:
-- Ask follow-up questions until all fields are collected.
-- Extract any values the user provides into the fields object.
-- Use today's date as default effective date if not specified.
-- When all fields are filled, confirm the document is ready and set is_complete to true.
-- Keep replies concise and conversational.
-"""
+    def __init__(self, message: str, *, retry_after_seconds: int | None = None):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
 
-NDA_FIELD_NAMES = [
-    "party1Company",
-    "party1Name",
-    "party1Title",
-    "party1Address",
-    "party2Company",
-    "party2Name",
-    "party2Title",
-    "party2Address",
-    "purpose",
-    "effectiveDate",
-    "mndaTerm",
-    "termOfConfidentiality",
-    "governingLaw",
-    "jurisdiction",
-]
 
-RESPONSE_SCHEMA: dict[str, Any] = {
-    "type": "object",
-    "properties": {
-        "assistant_message": {"type": "string"},
-        "fields": {
-            "type": "object",
-            "properties": {name: {"type": "string"} for name in NDA_FIELD_NAMES},
-            "required": NDA_FIELD_NAMES,
-            "additionalProperties": False,
-        },
-        "is_complete": {"type": "boolean"},
-    },
-    "required": ["assistant_message", "fields", "is_complete"],
-    "additionalProperties": False,
-}
+def _trim_conversation(conversation: list[dict[str, str]]) -> list[dict[str, str]]:
+    if len(conversation) <= MAX_CONVERSATION_MESSAGES:
+        return conversation
+    return conversation[-MAX_CONVERSATION_MESSAGES:]
 
 
 def _build_messages(
-    conversation: list[dict[str, str]], current_fields: NDAFields
+    conversation: list[dict[str, str]],
+    document_type_id: str | None,
+    current_fields: dict[str, str],
 ) -> list[dict[str, str]]:
-    fields_context = json.dumps(current_fields.model_dump(), indent=2)
+    system_prompt = (
+        build_system_prompt(document_type_id)
+        if document_type_id
+        else DETECTION_SYSTEM_PROMPT
+    )
+    fields_context = json.dumps(current_fields, indent=2)
+    context = (
+        f"Current document type: {document_type_id}\n"
+        if document_type_id
+        else "Current document type: not yet determined\n"
+    )
+    trimmed = _trim_conversation(conversation)
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt},
         {
             "role": "system",
-            "content": f"Current extracted fields (merge new values into these):\n{fields_context}",
+            "content": (
+                f"{context}Current extracted fields (merge new values into these):\n"
+                f"{fields_context}"
+            ),
         },
-        *conversation,
+        *trimmed,
     ]
 
 
+def _parse_retry_after(error: RateLimitError) -> int | None:
+    response = getattr(error, "response", None)
+    if response is not None:
+        retry_after = response.headers.get("Retry-After")
+        if retry_after and retry_after.isdigit():
+            return int(retry_after)
+    return None
+
+
 def chat_completion(
-    conversation: list[dict[str, str]], current_fields: NDAFields
-) -> tuple[str, NDAFields, bool]:
+    conversation: list[dict[str, str]],
+    document_type_id: str | None,
+    current_fields: dict[str, str],
+) -> tuple[str, str | None, dict[str, str], bool]:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        raise RuntimeError("OPENROUTER_API_KEY is not configured")
+        raise ChatServiceError("OPENROUTER_API_KEY is not configured")
 
-    response = litellm.completion(
-        model=MODEL,
-        messages=_build_messages(conversation, current_fields),
-        api_key=api_key,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "nda_chat_response",
-                "strict": True,
-                "schema": RESPONSE_SCHEMA,
-            },
-        },
-        extra_body={
-            "provider": {
-                "order": ["Cerebras"],
-                "allow_fallbacks": False,
-            }
-        },
-    )
+    schema = build_response_schema(document_type_id)
+    messages = _build_messages(conversation, document_type_id, current_fields)
+
+    last_error: Exception | None = None
+    for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+        try:
+            response = litellm.completion(
+                model=MODEL,
+                messages=messages,
+                api_key=api_key,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "document_chat_response",
+                        "strict": True,
+                        "schema": schema,
+                    },
+                },
+                reasoning_effort="low",
+                extra_body=EXTRA_BODY,
+            )
+            break
+        except RateLimitError as exc:
+            last_error = exc
+            retry_after = _parse_retry_after(exc) or 5
+            if attempt >= MAX_RATE_LIMIT_RETRIES:
+                raise ChatServiceError(
+                    "The AI service is temporarily busy. Please wait a minute and try again.",
+                    retry_after_seconds=retry_after,
+                ) from exc
+            time.sleep(min(retry_after, 10))
+        except Exception as exc:
+            raise ChatServiceError(
+                "The AI service is unavailable right now. Please try again shortly."
+            ) from exc
+    else:
+        raise ChatServiceError(
+            "The AI service is temporarily busy. Please wait a minute and try again."
+        ) from last_error
 
     content = response.choices[0].message.content
     if not content:
-        raise RuntimeError("Empty response from language model")
+        raise ChatServiceError("The AI returned an empty response. Please try again.")
 
-    parsed = json.loads(content)
-    extracted = NDAFields(**parsed.get("fields", {}))
+    try:
+        parsed: dict[str, Any] = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise ChatServiceError("The AI returned an invalid response. Please try again.") from exc
+
+    detected_type = parsed.get("document_type") or document_type_id
+    extracted_fields = parsed.get("fields") or {}
+
+    if detected_type and detected_type not in DOCUMENT_TYPES:
+        raise ChatServiceError(f"Unknown document type: {detected_type}")
+
+    normalized_fields = (
+        {key: str(extracted_fields.get(key, "")) for key in empty_fields(detected_type)}
+        if detected_type
+        else {}
+    )
+
+    assistant_message = parsed.get("assistant_message") or ""
+    if not assistant_message:
+        raise ChatServiceError("The AI returned an incomplete response. Please try again.")
+
     return (
-        parsed["assistant_message"],
-        extracted,
+        assistant_message,
+        detected_type,
+        normalized_fields,
         bool(parsed.get("is_complete", False)),
     )

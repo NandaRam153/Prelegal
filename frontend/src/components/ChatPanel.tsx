@@ -2,16 +2,20 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { api, type ChatMessage } from "@/lib/api";
-import type { NDAFields } from "@/lib/ndaTypes";
+import type { DocumentFields, DocumentTypeId } from "@/lib/documentTypes";
 
 interface Props {
-  fields: NDAFields;
-  onFieldsChange: (fields: NDAFields) => void;
+  documentType: DocumentTypeId | null;
+  fields: DocumentFields;
+  onDocumentTypeChange: (documentType: DocumentTypeId | null) => void;
+  onFieldsChange: (fields: DocumentFields) => void;
   onCompleteChange: (complete: boolean) => void;
 }
 
 export default function ChatPanel({
+  documentType,
   fields,
+  onDocumentTypeChange,
   onFieldsChange,
   onCompleteChange,
 }: Props) {
@@ -48,18 +52,30 @@ export default function ChatPanel({
 
     const userMessage: ChatMessage = { role: "user", content: text };
     const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setError("");
     setLoading(true);
 
     try {
-      const response = await api.chatMessage(nextMessages, fields);
+      const response = await api.chatMessage(
+        nextMessages,
+        documentType,
+        documentType ? fields : {}
+      );
+
+      if (response.document_type && response.document_type !== documentType) {
+        onDocumentTypeChange(response.document_type);
+      }
+
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: response.message },
       ]);
-      onFieldsChange(response.fields);
+
+      if (response.document_type) {
+        onFieldsChange(response.fields);
+      }
       onCompleteChange(response.is_complete);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to send message");
