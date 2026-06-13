@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
-from app.routers import auth, catalog, chat
+from app.routers import auth, catalog, chat, documents
 
 _OUT_DIR = Path(__file__).parent.parent.parent / "out"
 
@@ -22,6 +22,7 @@ app = FastAPI(title="Prelegal API", lifespan=lifespan)
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(catalog.router, prefix="/api/catalog", tags=["catalog"])
 app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+app.include_router(documents.router, prefix="/api/documents", tags=["documents"])
 
 
 @app.get("/api/health")

@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { api, type User } from "@/lib/api";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentPreview from "@/components/DocumentPreview";
+import MyDocumentsModal from "@/components/MyDocumentsModal";
 import type { DocumentFields, DocumentTypeId } from "@/lib/documentTypes";
 import { getDocumentName } from "@/lib/documentTypes";
 
@@ -20,7 +21,12 @@ export default function DashboardPage() {
   const [documentType, setDocumentType] = useState<DocumentTypeId | null>(null);
   const [fields, setFields] = useState<DocumentFields>({});
   const [isComplete, setIsComplete] = useState(false);
+  const [savedDocumentId, setSavedDocumentId] = useState<number | null>(null);
+  const [chatResetKey, setChatResetKey] = useState(0);
   const [checking, setChecking] = useState(true);
+  const [showDocuments, setShowDocuments] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     api.me()
@@ -37,8 +43,61 @@ export default function DashboardPage() {
     }
   }
 
+  function handleNewDocument() {
+    setSavedDocumentId(null);
+    setDocumentType(null);
+    setFields({});
+    setIsComplete(false);
+    setSaveMessage("");
+    setChatResetKey((key) => key + 1);
+  }
+
+  async function handleSave() {
+    if (!documentType) {
+      setSaveMessage("Choose a document type in chat before saving.");
+      return;
+    }
+
+    setSaving(true);
+    setSaveMessage("");
+    try {
+      const payload = {
+        document_type: documentType,
+        fields,
+        is_complete: isComplete,
+      };
+      const saved = savedDocumentId
+        ? await api.updateDocument(savedDocumentId, payload)
+        : await api.createDocument(payload);
+      setSavedDocumentId(saved.id);
+      setSaveMessage("Document saved.");
+    } catch (err: unknown) {
+      setSaveMessage(err instanceof Error ? err.message : "Failed to save document");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleLoadDocument(id: number) {
+    try {
+      const doc = await api.getDocument(id);
+      setSavedDocumentId(doc.id);
+      setDocumentType(doc.document_type);
+      setFields(doc.fields);
+      setIsComplete(doc.is_complete);
+      setSaveMessage("Document loaded.");
+      setChatResetKey((key) => key + 1);
+    } catch (err: unknown) {
+      setSaveMessage(err instanceof Error ? err.message : "Failed to load document");
+    }
+  }
+
   async function handleSignOut() {
-    await api.signout();
+    try {
+      await api.signout();
+    } catch {
+      // Navigate regardless — the session cookie will expire server-side
+    }
     router.replace("/");
   }
 
@@ -67,8 +126,30 @@ export default function DashboardPage() {
             {getDocumentName(documentType)}
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleNewDocument}
+            className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white"
+            style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+          >
+            New Document
+          </button>
+          <button
+            onClick={() => setShowDocuments(true)}
+            className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white"
+            style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+          >
+            My Documents
+          </button>
+          <button
+            onClick={() => void handleSave()}
+            disabled={saving || !documentType}
+            className="text-xs px-3 py-1.5 rounded-lg font-semibold text-white disabled:opacity-50"
+            style={{ backgroundColor: "var(--purple)" }}
+          >
+            {saving ? "Saving…" : savedDocumentId ? "Save" : "Save Document"}
+          </button>
+          <span className="text-xs ml-2" style={{ color: "rgba(255,255,255,0.6)" }}>
             {user?.email}
           </span>
           <button
@@ -81,6 +162,12 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {saveMessage && (
+        <div className="px-6 py-2 text-sm bg-blue-50" style={{ color: "var(--navy)" }}>
+          {saveMessage}
+        </div>
+      )}
+
       <main className="flex flex-1 gap-4 p-4 overflow-hidden">
         <div className="w-96 shrink-0 flex flex-col gap-4">
           <div className="bg-white rounded-xl shadow p-4 flex-1 overflow-hidden flex flex-col">
@@ -91,6 +178,7 @@ export default function DashboardPage() {
               AI Assistant
             </h2>
             <ChatPanel
+              key={chatResetKey}
               documentType={documentType}
               fields={fields}
               onDocumentTypeChange={handleDocumentTypeChange}
@@ -108,6 +196,12 @@ export default function DashboardPage() {
           <DocumentPreview documentType={documentType} fields={fields} />
         </div>
       </main>
+
+      <MyDocumentsModal
+        open={showDocuments}
+        onClose={() => setShowDocuments(false)}
+        onLoad={(id) => void handleLoadDocument(id)}
+      />
     </div>
   );
 }

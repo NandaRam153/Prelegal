@@ -412,6 +412,13 @@ def build_response_schema(document_type_id: str | None) -> dict[str, Any]:
         }
 
     type_ids = list(DOCUMENT_TYPES.keys())
+    # Allow the LLM to return any known field from any document type during detection,
+    # so values the user mentions before the type is confirmed are not silently dropped.
+    all_field_props = {
+        name: {"type": "string"}
+        for config in DOCUMENT_TYPES.values()
+        for name in config.field_names
+    }
     return {
         "type": "object",
         "properties": {
@@ -422,7 +429,7 @@ def build_response_schema(document_type_id: str | None) -> dict[str, Any]:
             },
             "fields": {
                 "type": "object",
-                "properties": {},
+                "properties": all_field_props,
                 "required": [],
                 "additionalProperties": False,
             },

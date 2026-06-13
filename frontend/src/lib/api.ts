@@ -49,6 +49,24 @@ export interface ChatResponse {
   is_complete: boolean;
 }
 
+export interface SavedDocument {
+  id: number;
+  document_type: DocumentTypeId;
+  title: string;
+  fields: DocumentFields;
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DocumentSummary {
+  id: number;
+  document_type: DocumentTypeId;
+  title: string;
+  is_complete: boolean;
+  updated_at: string;
+}
+
 export const api = {
   signup: (email: string, password: string) =>
     request<User>("/api/auth/signup", {
@@ -84,4 +102,36 @@ export const api = {
         fields,
       }),
     }),
+
+  listDocuments: () => request<DocumentSummary[]>("/api/documents"),
+
+  createDocument: (payload: {
+    document_type: DocumentTypeId;
+    fields: DocumentFields;
+    is_complete: boolean;
+    title?: string;
+  }) =>
+    request<SavedDocument>("/api/documents", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  getDocument: (id: number) => request<SavedDocument>(`/api/documents/${id}`),
+
+  updateDocument: (
+    id: number,
+    payload: {
+      document_type?: DocumentTypeId;
+      fields?: DocumentFields;
+      is_complete?: boolean;
+      title?: string;
+    }
+  ) =>
+    request<SavedDocument>(`/api/documents/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+
+  deleteDocument: (id: number) =>
+    request<{ message: string }>(`/api/documents/${id}`, { method: "DELETE" }),
 };

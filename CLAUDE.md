@@ -8,7 +8,7 @@ The available documents are covered in the catalog.json file in the project root
 
 @catalog.json
 
-The current implementation provides user sign-up/sign-in, AI chat for all 11 catalog document types with live preview and PDF download. Document persistence is planned but not yet built.
+The current implementation (PL-4 through PL-7) provides user sign-up/sign-in, AI chat for all 11 catalog document types with live preview and PDF download, and per-user document persistence with save/load/delete.
 
 ## Development process
 
@@ -33,7 +33,7 @@ There is an `OPENROUTER_API_KEY` in the `.env` file in the project root. Docker 
 The entire project should be packaged into a Docker container.  
 The backend should be in backend/ and be a uv project, using FastAPI.  
 The frontend should be in frontend/  
-The database should use SQLLite and be created from scratch each time the Docker container is brought up, allowing for a users table with sign up and sign in.  
+The database should use SQLLite and be created from scratch each time the Docker container is brought up, with `users`, `sessions`, and `documents` tables for sign-up/sign-in and per-user document storage.  
 Consider statically building the frontend and serving it via FastAPI, if that will work.  
 There should be scripts in scripts/ for:  
 ```bash
@@ -92,19 +92,44 @@ Backend available at http://localhost:8000
 - LLM resilience: rate-limit retry with backoff, provider fallbacks, conversation history trimmed to last 24 messages, graceful 503 errors surfaced in the chat UI
 - Detected document type no longer wipes previously extracted field values
 
-### Planned (PL-7) — not started
-- Document persistence (save/load/delete)
-- My Documents UI
-- Document CRUD API endpoints (`/api/documents/*`)
+### Completed (PL-7)
+- Document persistence in SQLite (`documents` table in `backend/app/models.py`: `user_id`, `document_type`, `title`, `fields` JSON, `is_complete`, timestamps)
+- Document CRUD API at `backend/app/routers/documents.py` with schemas in `backend/app/schemas/documents.py` (auth required; scoped to current user)
+- Auto-generated titles from field values (e.g. party names for Mutual NDA)
+- Dashboard (`frontend/src/app/dashboard/page.tsx`): **Save** / **Save Document** (create or update), **New Document**, **My Documents**
+- `frontend/src/components/MyDocumentsModal.tsx` — list saved documents, **Load**, **Delete**
+- API client helpers in `frontend/src/lib/api.ts`: `listDocuments`, `createDocument`, `getDocument`, `updateDocument`, `deleteDocument`
+- Loading a saved document restores `document_type`, fields, and `is_complete`; chat panel resets (conversation history is not persisted)
+- Backend tests in `backend/tests/test_documents.py` (auth, CRUD, user isolation, unknown document type)
 
-Note: Basic auth (sign-up/sign-in/sign-out) is implemented in PL-4 using HttpOnly session cookies, not JWT.
+Note: Auth uses HttpOnly `prelegal_session` cookies (bcrypt password hashing), not JWT. Data persists for the lifetime of the Docker container (SQLite is recreated on each container start).
 
-### Current API Endpoints
+## Testing
+
+```bash
+# Backend (from backend/)
+uv run pytest
+
+# Frontend (from frontend/)
+npm test
+npm run build
+```
+
+Current test counts: **29 backend** (`test_auth`, `test_health`, `test_chat`, `test_catalog`, `test_document_registry`, `test_documents`), **8 frontend** (`__tests__/lib/ndaTypes.test.ts`).
+
+Run the full stack with `scripts/start-windows.ps1` (or Mac/Linux equivalents); app at http://localhost:8000.
+
+## Current API Endpoints
 - `POST /api/auth/signup` - Create new user account and set session cookie
 - `POST /api/auth/signin` - Sign in and set session cookie
 - `POST /api/auth/signout` - Clear session cookie
 - `GET /api/auth/me` - Get current user info (requires session cookie)
 - `GET /api/catalog` - List available document types (auth required)
+- `GET /api/documents` - List current user's saved documents (auth required)
+- `POST /api/documents` - Save a new document (auth required)
+- `GET /api/documents/{id}` - Load a saved document (auth required)
+- `PUT /api/documents/{id}` - Update a saved document (auth required)
+- `DELETE /api/documents/{id}` - Delete a saved document (auth required)
 - `GET /api/chat/greeting` - Get AI greeting for document chat (auth required)
 - `POST /api/chat/message` - Send chat message; returns assistant reply, `document_type`, merged fields, and `is_complete` (auth required). Returns 503 if OpenRouter/Cerebras is rate-limited or unavailable.
 - `GET /api/health` - Health check

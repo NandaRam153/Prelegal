@@ -22,6 +22,8 @@ def greeting(_user: User = Depends(get_current_user)):
 @router.post("/message", response_model=ChatResponse)
 def message(body: ChatRequest, _user: User = Depends(get_current_user)):
     document_type = body.document_type
+    if document_type and document_type not in document_registry.DOCUMENT_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unknown document type: {document_type}")
     current = body.fields or (
         document_registry.empty_fields(document_type)
         if document_type
